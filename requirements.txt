@@ -1,0 +1,9 @@
+torch
+torchvision
+numpy
+copy
+scipy
+matplotlib
+seaborn
+sacred
+nbstripout
