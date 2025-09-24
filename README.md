@@ -1,5 +1,5 @@
 # AdaptGrad
-Official Implementation of paper “Rethinking the Principle of Gradient Smooth Methods in Model Explanation”
+Official Implementation of paper “AdaptGrad: Adaptive Sampling to Reduce Noise”
 
 ![examples](./figs/vis_vgg.jpg)
 
