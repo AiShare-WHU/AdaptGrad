@@ -1,5 +1,5 @@
 # AdaptGrad
-Official Implementation of paper “AdaptGrad: Adaptive Sampling to Reduce Noise”
+Official Implementation of paper “AdaptGrad: Adaptive Sampling to Reduce Noise”, accepted in NIPS 2025.
 
 ![examples](./figs/vis_vgg.jpg)
 
