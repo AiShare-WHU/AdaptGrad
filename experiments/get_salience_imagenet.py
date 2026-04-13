@@ -20,7 +20,7 @@ from saliency import (
     WhiteBaseline,
     BlackBaseline,
 )
-from models import VGG, MobileNet, Inception, ResNet, DenseNet
+from models import create_model
 from utils import get_salience
 
 from sacred import Experiment
@@ -35,7 +35,9 @@ ex = Experiment("Salience")
 @ex.config
 def config():
     dataset = "imagenet"  # only imagenet
-    model_name = "vgg16"  # vgg16, resnet50, densenet121, inception_v3, mobile_v3_small
+    model_name = (
+        "vgg16"  # vgg16, resnet50, densenet121, inception_v3, mobilenet_v3_small
+    )
     n_samples = 50  # number of samples for sampling
     m_samples = 50  # number of samples for sampling (only for NoiseGradient)
     n_steps = 50  # number of steps for integrated gradient
@@ -63,20 +65,7 @@ def main(
     else:
         print("CUDA is not available")
         device = tc.device("cpu")
-    if "vgg" in model_name:
-        model = VGG(model_name)
-    elif "mobile" in model_name:
-        model = MobileNet(model_name)
-    elif "inception" in model_name:
-        model = Inception(model_name)
-    elif "resnet" in model_name:
-        model = ResNet(model_name)
-    elif "densenet" in model_name:
-        model = DenseNet(model_name)
-    else:
-        raise ValueError("Invalid model name")
-    model = model.to(device)
-    model.eval()
+    model = create_model(model_name, device=device, eval_mode=True)
     saved_data_path = f"./saved_data/{model_name}/imagenet/"
     imgs_path = "./data/imagenet/images/"
     img_ids = [i.split(".")[0] for i in os.listdir(imgs_path)]

@@ -21,7 +21,25 @@ For ImageNet, the dataset should be placed in the `./data/imagenet/images/` fold
 
 You can find the pre-trained models in the `saved_models` folder.
 
-For VGG16, ResNet50 and InceptionV3, we use the pre-trained models provided by torchvision.
+For ImageNet models, we use torchvision weights through a unified model factory.
+Supported model names include:
+
+- `vgg11`, `vgg13`, `vgg16`, `vgg19`
+- `resnet50`, `resnet101`, `resnet152`
+- `inception_v3`
+- `mobilenet_v3_small`, `mobilenet_v3_large`
+- `densenet121`, `densenet169`, `densenet201`
+
+Example:
+
+```python
+from models import create_model
+
+model = create_model("resnet50")
+img = model.transform(img)
+logits = model(img.unsqueeze(0))
+probs = logits.softmax(dim=1)
+```
 
 ## Results
 
@@ -74,7 +92,7 @@ python experiments/get_correlation.py -s abs -d MNIST -m MLP
 
 Get the saliency map first:
 ```shell
-python experiments/get_salience_imagenet.py -m vgg16 # option: inception_v3, resnet50
+python experiments/get_salience_imagenet.py -m vgg16 # option: inception_v3, resnet50, densenet121, mobilenet_v3_small
 ```
 
 Get the Sparseness of the VGG16 model on the ImageNet dataset:

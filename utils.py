@@ -6,7 +6,6 @@ import seaborn as sns
 import shutil
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
-import torchvision.models as models
 import torch.nn as nn
 import time
 import torch.optim as optim
@@ -244,8 +243,8 @@ if __name__ == "__main__":
     train_loader = data_loader(root="./data/")
     img = next(iter(train_loader))
     print(img[0][0].shape, img[1][0])
-    from models.VGG import VGG
+    from models import create_model
 
-    model = VGG(models.vgg16(pretrained=True))
+    model = create_model("vgg16")
     result = model(img[0])
     print(result, result.shape)

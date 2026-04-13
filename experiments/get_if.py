@@ -21,7 +21,7 @@ from utils import (
     model_call,
     salience_to_array,
 )
-from models import VGG, Inception, MobileNet, ResNet, DenseNet
+from models import create_model
 
 
 def main(model_name):
@@ -33,19 +33,7 @@ def main(model_name):
         device = tc.device("cpu")
     datapath = f"./saved_data/{model_name}/imagenet/"
     imgpath = "./data/imagenet/images/"
-    if model_name == "vgg16":
-        model = VGG("vgg16")
-    elif model_name == "inception_v3":
-        model = Inception("inception_v3")
-    elif model_name == "mobile_v3_small":
-        model = MobileNet("mobile_v3_small")
-    elif model_name == "resnet50":
-        model = ResNet("resnet50")
-    elif model_name == "densenet121":
-        model = DenseNet("densenet121")
-    else:
-        raise ValueError("Invalid model name")
-    model = model.to(device)
+    model = create_model(model_name, device=device, eval_mode=True)
     explainers = os.listdir(datapath)
     explainers.sort()
     explainers = [explainer for explainer in explainers if "Integrated" in explainer]

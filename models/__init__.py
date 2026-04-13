@@ -1,4 +1,4 @@
-from .VGG import VGG
-from .ResNet import ResNet
+from .factory import create_model, list_models
 from .MLP import MLP
-from .Inception import Inception
+
+__all__ = ["create_model", "list_models", "MLP"]
