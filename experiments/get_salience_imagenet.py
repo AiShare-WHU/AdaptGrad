@@ -5,6 +5,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 import torchvision as tv
 import torch as tc
+import numpy as np
 from tqdm import tqdm
 from saliency import (
     FixedBound,
@@ -45,6 +46,16 @@ def config():
     alpha = 0.2  # alpha for SmoothGradient
     samples = 100  # number of samples for salience map
     device_id = 0  # GPU device id
+    seed = 0
+
+
+def set_seed(seed: int):
+    np.random.seed(seed)
+    tc.manual_seed(seed)
+    if tc.cuda.is_available():
+        tc.cuda.manual_seed_all(seed)
+    tc.backends.cudnn.deterministic = True
+    tc.backends.cudnn.benchmark = False
 
 
 @ex.automain
@@ -58,7 +69,9 @@ def main(
     alpha,
     samples,
     device_id,
+    seed,
 ):
+    set_seed(seed)
     if tc.cuda.is_available():
         print("CUDA is available")
         device = tc.device("cuda:%d" % device_id)

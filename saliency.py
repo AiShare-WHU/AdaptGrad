@@ -1,7 +1,6 @@
 import copy
 import numpy as np
 import torch as tc
-import torchvision as tv
 import torch.nn as nn
 from core import Gradient, Mask, Sigma, Bound, Baseline
 
@@ -14,14 +13,13 @@ class VanillaGradient(Gradient):
     def gradient(self, model_call, x, label):
         if isinstance(x, np.ndarray):
             x = tc.tensor(x, dtype=tc.float32, device=self.device)
-        elif isinstance(x, tc.Tensor) and x.is_cpu:
+        else:
             x = x.to(self.device)
-        x.requires_grad = True
+        x = x.detach().requires_grad_(True)
         prediction = model_call(x)
-        loss = prediction[:, label]
-        loss.backward()
-        gradient = x.grad
-        return gradient
+        loss = prediction[:, label].sum()
+        gradient = tc.autograd.grad(loss, x, retain_graph=False, create_graph=False)[0]
+        return gradient.detach()
 
 
 class GaussianMask(Mask):
@@ -114,22 +112,19 @@ class SmoothGradient(Gradient):
             x = tc.tensor(x, dtype=tc.float32, device=self.device)
         else:
             x = x.to(self.device)
-        x = x.detach()
-        x.requires_grad = True
+        x = x.detach().requires_grad_(True)
         prediction = model_call(x)
-        loss = prediction[:, label]
-        loss.backward()
+        loss = prediction[:, label].sum()
         grads = tc.zeros(size=[self.n_samples + 1, *x.shape], device=self.device)
-        grads[0] = x.grad  # type: ignore
+        grads[0] = tc.autograd.grad(loss, x, retain_graph=False, create_graph=False)[0]
         for i in range(self.n_samples):
             mask = self.mask.get_mask(x)
-            x_noise = x + mask
-            x_noise = x_noise.detach()
-            x_noise.requires_grad = True
+            x_noise = (x + mask).detach().requires_grad_(True)
             prediction = model_call(x_noise)
-            loss = prediction[:, label]
-            loss.backward()
-            grads[i + 1] = x_noise.grad  # type: ignore
+            loss = prediction[:, label].sum()
+            grads[i + 1] = tc.autograd.grad(
+                loss, x_noise, retain_graph=False, create_graph=False
+            )[0]
         grads = grads[~tc.isnan(grads.view(grads.shape[0], -1)).any(dim=1)]
         return grads.mean(dim=0)
 
@@ -167,13 +162,11 @@ class IntegratedGradient(Gradient):
             x = tc.tensor(x, dtype=tc.float32, device=self.device)
         else:
             x = x.to(self.device)
-        x = x.detach()
-        x.requires_grad = True
+        x = x.detach().requires_grad_(True)
         prediction = model_call(x)
-        loss = prediction[:, label]
-        loss.backward()
+        loss = prediction[:, label].sum()
         grads = tc.zeros(size=[self.n_steps + 1, *x.shape], device=self.device)
-        grads[0] = x.grad  # type: ignore
+        grads[0] = tc.autograd.grad(loss, x, retain_graph=False, create_graph=False)[0]
         x_baseline = self.baseline.get_baseline(x)
         for i in range(self.n_steps):
             alpha = i / self.n_steps
@@ -211,6 +204,8 @@ class NoiseGradient(Gradient):
         self.backgrad = backgrad
 
     def gradient(self, model_call, x, label):
+        self.noise.to(self.device)
+        self.backgrad.to(self.device)
         if isinstance(x, np.ndarray):
             x = tc.tensor(x, dtype=tc.float32, device=self.device)
         else:
@@ -221,13 +216,10 @@ class NoiseGradient(Gradient):
         # Copy the model
         model_copy = copy.deepcopy(model_call)
         model_copy.to(self.device)
+        model_copy.eval()
         grads = tc.zeros(size=[self.n_samples + 1, *x.shape], device=self.device)
         x = x.detach()
-        x.requires_grad = True
-        prediction = model_call(x)
-        loss = prediction[:, label]
-        loss.backward()
-        grads[0] = x.grad  # type: ignore
+        grads[0] = self.backgrad.gradient(model_call, x, label)
         for i in range(self.n_samples):
             model_copy.load_state_dict(model_call.state_dict())
             with tc.no_grad():
@@ -235,6 +227,6 @@ class NoiseGradient(Gradient):
                     if "classifier" in name:
                         continue
                     param *= self.noise.get_mask(param) + 1
-            grads[i + 1] = self.backgrad.gradient(model_call, x, label)
+            grads[i + 1] = self.backgrad.gradient(model_copy, x, label)
         grads = grads[~tc.isnan(grads.view(grads.shape[0], -1)).any(dim=1)]
         return grads.mean(dim=0)

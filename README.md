@@ -59,12 +59,12 @@ To reproduce the experiments in the paper, please run the following commands:
 
 Get the salience of the MNIST dataset:
 ```shell
-python experiments/get_salience.py with dataset=MNIST model_name=MLP kind=Normal
+python experiments/get_salience_mnist.py with dataset=MNIST model_name=MLP kind=Normal
 ```
 
 Get the salience of the MNIST dataset with random labels:
 ```shell
-python experiments/get_salience.py with dataset=MNIST model_name=MLP kind=Random
+python experiments/get_salience_mnist.py with dataset=MNIST model_name=MLP kind=Random
 ```
 
 ### Invariance

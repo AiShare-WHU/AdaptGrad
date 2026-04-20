@@ -1,5 +1,4 @@
 import torch
-import torchvision.models as models
 import torch.nn as nn
 import os
 
@@ -7,15 +6,15 @@ import os
 class MLP(nn.Module):
     def __init__(self):
         super(MLP, self).__init__()
-        self.model = nn.Sequential(
-            nn.Linear(784, 200), nn.ReLU(), nn.Linear(200, 10), nn.Softmax(dim=1)
-        )
+        # Return logits and let CrossEntropyLoss handle the softmax internally.
+        self.model = nn.Sequential(nn.Linear(784, 200), nn.ReLU(), nn.Linear(200, 10))
 
     def forward(self, x):
         return self.model(x)
 
-    def train(self, train_loader, epochs, device="cuda"):
+    def fit(self, train_loader, epochs, device="cuda"):
         self.to(device)
+        super().train(True)
         loss_fn = nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(self.parameters(), lr=0.01)
         for epoch in range(epochs):
@@ -39,7 +38,6 @@ class MLP(nn.Module):
 
 
 if __name__ == "__main__":
-    import torchvision
     from torchvision import datasets, transforms
     from torch.utils.data import DataLoader
 
@@ -56,7 +54,7 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
     test_loader = DataLoader(test_data, batch_size=32, shuffle=False)
     model = MLP().to(device)
-    model.train(train_loader, 20, device=device)
+    model.fit(train_loader, 20, device=device)
     model.save("./saved_models/bias_mlp.pth")
     model.load("./saved_models/bias_mlp.pth")
     model = model.cuda()

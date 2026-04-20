@@ -24,7 +24,17 @@ from utils import (
 from models import create_model
 
 
-def main(model_name):
+def set_seed(seed: int):
+    np.random.seed(seed)
+    tc.manual_seed(seed)
+    if tc.cuda.is_available():
+        tc.cuda.manual_seed_all(seed)
+    tc.backends.cudnn.deterministic = True
+    tc.backends.cudnn.benchmark = False
+
+
+def main(model_name, seed=0):
+    set_seed(seed)
     if tc.cuda.is_available():
         print("CUDA is available")
         device = tc.device("cuda:0")
@@ -90,5 +100,6 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-m", "--model", type=str, default="vgg16")
+    parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
-    main(args.model)
+    main(args.model, args.seed)

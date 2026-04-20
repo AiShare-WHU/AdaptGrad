@@ -47,6 +47,16 @@ def config():
     alpha = 0.2  # alpha for SmoothGradient
     samples = 1000  # number of samples for salience map
     device_id = 0
+    seed = 0
+
+
+def set_seed(seed: int):
+    np.random.seed(seed)
+    tc.manual_seed(seed)
+    if tc.cuda.is_available():
+        tc.cuda.manual_seed_all(seed)
+    tc.backends.cudnn.deterministic = True
+    tc.backends.cudnn.benchmark = False
 
 
 @ex.automain
@@ -61,7 +71,9 @@ def main(
     alpha,
     samples,
     device_id,
+    seed,
 ):
+    set_seed(seed)
     if tc.cuda.is_available():
         print("CUDA is available")
         device = tc.device("cuda:%d" % device_id)
@@ -109,7 +121,7 @@ def main(
     else:
         raise NotImplementedError
     model = model.to(device)
-    # model.eval()
+    model.eval()
     saved_data_path = f"./saved_data/{model_name}/{dataset}{kind}/"
     bound_min = 0
     bound_max = 1
@@ -164,7 +176,6 @@ def main(
         GradientxInput(SmoothGradient(adapted_mask, n_samples).to(device)),
     ]
 
-    np.random.seed(0)
     indexs = np.random.choice(list(range(len(test_data))), size=samples)
     for index in tqdm(indexs):
         img, target = test_data[index][0][0], int(test_data[index][1])
