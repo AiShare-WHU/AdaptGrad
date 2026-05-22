@@ -1,107 +1,183 @@
 # AdaptGrad
-Official Implementation of paper “AdaptGrad: Adaptive Sampling to Reduce Noise”, accepted in NIPS 2025.
+
+Official implementation of the paper **"AdaptGrad: Adaptive Sampling to Reduce Noise"**, accepted at **NeurIPS 2025**.
 
 ![examples](./figs/vis_vgg.jpg)
 
-## Requirements
+## Overview
 
-To install requirements:
-    
+SmoothGrad reduces visual noise in gradient-based saliency maps by averaging gradients over noisy samples, but uses a **fixed noise magnitude** (`alpha`) that does not adapt to the input data range. AdaptGrad introduces an **adaptive sampling strategy** that adjusts the perturbation variance based on the confidence interval of the input, producing sharper and more faithful attributions without manual tuning.
+
+## Project Structure
+
+```
+AdaptGrad/
+├── core.py                  # Abstract base classes: GPU, Gradient, Bound, Sigma, Mask, Baseline
+├── saliency.py              # Concrete saliency methods (Vanilla, SmoothGrad, NoiseGrad, IG, GxI)
+├── utils.py                 # Visualization, data conversion, seed utilities
+├── models/
+│   ├── __init__.py          # Exports: create_model, list_models, MLP
+│   ├── factory.py           # Unified model factory for torchvision models
+│   └── MLP.py               # Simple MLP for MNIST experiments
+├── metrics/
+│   ├── consistency.py       # Rank correlation, layer randomization, scaling
+│   ├── sparseness.py        # Gini coefficient
+│   └── pic.py               # Performance Information Curve (from XRAI)
+├── experiments/
+│   ├── get_salience_mnist.py      # Generate saliency maps for MNIST
+│   ├── get_salience_imagenet.py   # Generate saliency maps for ImageNet
+│   ├── get_correlation.py         # Compute consistency / invariance metrics
+│   ├── get_sparseness.py          # Compute sparseness (Gini) metrics
+│   └── get_if.py                  # Compute Information Level (PIC) metrics
+├── data/                    # Datasets (gitignored except samples)
+├── saved_models/            # Pre-trained MLP weights
+├── figs/                    # Figures for README
+└── vis_imagenet.ipynb       # Visualization notebook
+```
+
+## Architecture
+
+The codebase follows a **Strategy pattern** with composable abstract base classes:
+
+| Class | Role | Implementations |
+|---|---|---|
+| `Gradient` | Computes gradients w.r.t. input | `VanillaGradient`, `SmoothGradient`, `NoiseGradient`, `IntegratedGradient`, `GradientxInput` |
+| `Mask` | Generates noise masks | `GaussianMask` |
+| `Sigma` | Controls noise magnitude | `FixedSigma`, `AdaptedGaussianSigma` |
+| `Bound` | Defines input value range | `FixedBound`, `AdaptedBound` |
+| `Baseline` | Defines baseline for IG | `WhiteBaseline`, `BlackBaseline` |
+
+Components are **composable** -- you can plug any `Sigma` into any `Mask`, any `Mask` into `SmoothGradient`, and any `Gradient` into `IntegratedGradient` or `NoiseGradient`:
+
+```python
+from saliency import (
+    SmoothGradient, GaussianMask, AdaptedGaussianSigma, AdaptedBound,
+    IntegratedGradient, VanillaGradient, WhiteBaseline,
+)
+
+# AdaptGrad: adaptive noise sampling
+adapted_bound = AdaptedBound(lower=-2.117904, upper=2.640000)
+adapted_sigma = AdaptedGaussianSigma(alpha=0.95, bound=adapted_bound)
+adapted_mask = GaussianMask(sigma=adapted_sigma)
+adaptgrad = SmoothGradient(mask=adapted_mask, n_samples=50)
+
+# SmoothGrad: fixed noise sampling (for comparison)
+from saliency import FixedSigma, FixedBound
+fixed_bound = FixedBound(lower=-2.117904, upper=2.640000)
+fixed_sigma = FixedSigma(alpha=0.2, bound=fixed_bound)
+fixed_mask = GaussianMask(sigma=fixed_sigma)
+smoothgrad = SmoothGradient(mask=fixed_mask, n_samples=50)
+
+# Integrated Gradient with adaptive backbone
+ig_adapt = IntegratedGradient(
+    baseline=WhiteBaseline(),
+    backgrad=SmoothGradient(adapted_mask, n_samples=50),
+    n_steps=50,
+)
+```
+
+## Installation
+
 ```shell
 pip install -r requirements.txt
 ```
 
-## Downloading the datasets
+**Dependencies:** PyTorch, torchvision, NumPy, SciPy, Matplotlib, Seaborn, Sacred, tqdm, joblib, Pillow
 
-MNIST are available in torchvision. For ImageNet, please download the dataset from [here](http://www.image-net.org/challenges/LSVRC/2012/).
+## Datasets
 
-For ImageNet, the dataset should be placed in the `./data/imagenet/images/` folder. And the labels should be placed in the `./data/imagenet/labels/` folder.
+**MNIST** -- downloaded automatically via torchvision.
+
+**ImageNet** -- download from [image-net.org](http://www.image-net.org/challenges/LSVRC/2012/) and place images in `./data/imagenet/images/`.
 
 ## Pre-trained Models
 
-You can find the pre-trained models in the `saved_models` folder.
+**MNIST:** Pre-trained MLP weights are provided in `saved_models/` (`mlp.pth`, `bias_mlp.pth`, `random_mlp.pth`).
 
-For ImageNet models, we use torchvision weights through a unified model factory.
-Supported model names include:
-
-- `vgg11`, `vgg13`, `vgg16`, `vgg19`
-- `resnet50`, `resnet101`, `resnet152`
-- `inception_v3`
-- `mobilenet_v3_small`, `mobilenet_v3_large`
-- `densenet121`, `densenet169`, `densenet201`
-
-Example:
+**ImageNet:** Uses torchvision pre-trained weights via the unified model factory:
 
 ```python
 from models import create_model
 
-model = create_model("resnet50")
-img = model.transform(img)
-logits = model(img.unsqueeze(0))
-probs = logits.softmax(dim=1)
+model = create_model("resnet50")             # load with default pretrained weights
+logits = model(model.transform(img))         # returns raw logits
+probs = logits.softmax(dim=1)                # apply softmax when needed
 ```
 
-## Results
-
-All the results will be saved in the `results` folder.
-
-## Examples
-
-See `vis_imagenet.ipynb` for examples of how to use the code.
+Supported models: `vgg11`, `vgg13`, `vgg16`, `vgg19`, `resnet50`, `resnet101`, `resnet152`, `inception_v3`, `mobilenet_v3_small`, `mobilenet_v3_large`, `densenet121`, `densenet169`, `densenet201`
 
 ## Experiments
 
-To reproduce the experiments in the paper, please run the following commands:
+The experiments use [Sacred](https://github.com/IDSIA/sacred) for configuration management.
 
-### Consistency
+### 1. Generate Saliency Maps
 
-#### MNIST
+**MNIST** (Normal / Random labels / Bias shift):
 
-Get the salience of the MNIST dataset:
 ```shell
-python experiments/get_salience_mnist.py with dataset=MNIST model_name=MLP kind=Normal
+python experiments/get_salience_mnist.py with model_name=MLP kind=Normal
+python experiments/get_salience_mnist.py with model_name=MLP kind=Random
+python experiments/get_salience_mnist.py with model_name=MLP kind=Bias device_id=0
 ```
 
-Get the salience of the MNIST dataset with random labels:
+**ImageNet:**
+
 ```shell
-python experiments/get_salience_mnist.py with dataset=MNIST model_name=MLP kind=Random
+python experiments/get_salience_imagenet.py with model_name=vgg16
+python experiments/get_salience_imagenet.py with model_name=resnet50
 ```
 
-### Invariance
+### 2. Consistency & Invariance
 
-#### MNIST
+Compute rank correlation between saliency maps from normal vs. random/bias models:
 
-Get the salience of the MNIST dataset with bias shift:
 ```shell
-python experiments/get_salience_mnist.py with dataset=MNIST model_name=MLP kind=Bias t=0.5 device_id=0
+python experiments/get_correlation.py -d MNIST -m MLP -s noabs
+python experiments/get_correlation.py -d MNIST -m MLP -s abs
 ```
 
-### Get the Consistency and Invariance
+### 3. Sparseness
 
-Get the Consistency and Invariance of the MNIST dataset (Regularization with noabs):
-```shell
-python experiments/get_correlation.py -s noabs -d MNIST -m MLP
-```
+Compute Gini coefficient of saliency maps:
 
-Get the Consistency and Invariance of the MNIST dataset (Regularization with abs):
-```shell
-python experiments/get_correlation.py -s abs -d MNIST -m MLP
-```
-
-### Sparseness and Information Level
-
-Get the saliency map first:
-```shell
-python experiments/get_salience_imagenet.py -m vgg16 # option: inception_v3, resnet50, densenet121, mobilenet_v3_small
-```
-
-Get the Sparseness of the VGG16 model on the ImageNet dataset:
 ```shell
 python experiments/get_sparseness.py -m vgg16
 ```
 
+### 4. Information Level
 
-Get the Information Level of the VGG16 model on the ImageNet dataset:
+Compute Performance Information Curve (PIC) metric:
+
 ```shell
 python experiments/get_if.py -m vgg16
 ```
+
+## Evaluation Metrics
+
+| Metric | Script | Description |
+|---|---|---|
+| **Consistency** | `get_correlation.py` | Rank correlation (Spearman) between saliency maps from normal and random-label models |
+| **Invariance** | `get_correlation.py` | Rank correlation between saliency maps from normal and bias-shifted models |
+| **Sparseness** | `get_sparseness.py` | Gini coefficient measuring how concentrated the attribution is |
+| **Information Level** | `get_if.py` | Performance Information Curve (PIC) from [XRAI](https://arxiv.org/abs/1906.02825), measuring how well saliency regions preserve model prediction |
+
+## Results
+
+All results are saved to the `./results/` directory.
+
+## Citation
+
+If you find this work useful, please cite:
+
+```bibtex
+@article{adaptgrad2025,
+  title={AdaptGrad: Adaptive Sampling to Reduce Noise},
+  author={},
+  journal={Advances in Neural Information Processing Systems},
+  year={2025}
+}
+```
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
