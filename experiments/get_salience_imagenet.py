@@ -5,7 +5,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 import torchvision as tv
 import torch as tc
-import numpy as np
 from tqdm import tqdm
 from saliency import (
     FixedBound,
@@ -22,7 +21,7 @@ from saliency import (
     BlackBaseline,
 )
 from models import create_model
-from utils import get_salience
+from utils import get_salience, set_seed
 
 from sacred import Experiment
 
@@ -47,15 +46,6 @@ def config():
     samples = 100  # number of samples for salience map
     device_id = 0  # GPU device id
     seed = 0
-
-
-def set_seed(seed: int):
-    np.random.seed(seed)
-    tc.manual_seed(seed)
-    if tc.cuda.is_available():
-        tc.cuda.manual_seed_all(seed)
-    tc.backends.cudnn.deterministic = True
-    tc.backends.cudnn.benchmark = False
 
 
 @ex.automain

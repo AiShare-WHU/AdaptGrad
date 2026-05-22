@@ -20,17 +20,9 @@ from utils import (
     tensor_to_array_imagenet,
     model_call,
     salience_to_array,
+    set_seed,
 )
 from models import create_model
-
-
-def set_seed(seed: int):
-    np.random.seed(seed)
-    tc.manual_seed(seed)
-    if tc.cuda.is_available():
-        tc.cuda.manual_seed_all(seed)
-    tc.backends.cudnn.deterministic = True
-    tc.backends.cudnn.benchmark = False
 
 
 def main(model_name, seed=0):

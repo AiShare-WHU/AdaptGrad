@@ -3,15 +3,9 @@ from typing import List, Union
 from matplotlib import pyplot as plt
 import torch as tc
 import seaborn as sns
-import shutil
-import torchvision.transforms as transforms
-import torchvision.datasets as datasets
 import torch.nn as nn
-import time
-import torch.optim as optim
 import numpy as np
 import scipy.stats as stats
-from torch.utils.data import DataLoader
 from core import Bound, Sigma, Mask, Gradient, Baseline
 
 
@@ -79,6 +73,12 @@ def visualize_noabsscale(salience):
     return np.clip(salience / (vmax - vmin), -1, 1)
 
 
+def rank_correlation(saliency, target):
+    saliency = saliency.flatten()
+    target = target.flatten()
+    return stats.spearmanr(saliency, target)
+
+
 def visualize_ixs(salience, input_img):
     # Multiplying maps with the input images
     salience = salience * input_img
@@ -105,62 +105,13 @@ def visualize_square(salience):
     return salience
 
 
-def rank_correlation(saliency, target):
-    saliency = saliency.flatten()
-    target = target.flatten()
-    return stats.spearmanr(saliency, target)
-
-
-# Unused
-def data_loader(root, batch_size=256, workers=1, pin_memory=True):
-    traindir = os.path.join(root, "ILSVRC2012_img_train")
-    valdir = os.path.join(root, "ILSVRC2012_img_val")
-    normalize = transforms.Normalize(
-        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-    )
-
-    train_dataset = datasets.ImageFolder(
-        traindir,
-        transforms.Compose(
-            [
-                transforms.RandomResizedCrop(224),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                normalize,
-            ]
-        ),
-    )
-
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=workers,
-        pin_memory=pin_memory,
-        sampler=None,
-    )
-    return train_loader
-
-
-# Unused
-def compute_overlap(bbox_gt, bbox_pre):
-    bi = [
-        max(bbox_pre[0], bbox_gt[0]),
-        max(bbox_pre[1], bbox_gt[1]),
-        min(bbox_pre[2], bbox_gt[2]),
-        min(bbox_pre[3], bbox_gt[3]),
-    ]
-    iw = bi[2] - bi[0] + 1
-    ih = bi[3] - bi[1] + 1
-    ov = 0
-    if iw > 0 and ih > 0:
-        ua = (
-            (bbox_pre[2] - bbox_pre[0] + 1) * (bbox_pre[3] - bbox_pre[1] + 1)
-            + (bbox_gt[2] - bbox_gt[0] + 1) * (bbox_gt[3] - bbox_gt[1] + 1)
-            - iw * ih
-        )
-        ov = iw * ih / ua
-    return ov
+def set_seed(seed: int):
+    np.random.seed(seed)
+    tc.manual_seed(seed)
+    if tc.cuda.is_available():
+        tc.cuda.manual_seed_all(seed)
+    tc.backends.cudnn.deterministic = True
+    tc.backends.cudnn.benchmark = False
 
 
 def visual_imagenet(salience: tc.Tensor):
@@ -237,14 +188,3 @@ def salience_to_array(salience: tc.Tensor):
     salience = np.sum(salience, axis=0)
     salience = visualize_absscale(salience)
     return salience
-
-
-if __name__ == "__main__":
-    train_loader = data_loader(root="./data/")
-    img = next(iter(train_loader))
-    print(img[0][0].shape, img[1][0])
-    from models import create_model
-
-    model = create_model("vgg16")
-    result = model(img[0])
-    print(result, result.shape)

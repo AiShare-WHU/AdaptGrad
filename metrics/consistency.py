@@ -1,7 +1,7 @@
 import copy
-import numpy as np
-import scipy.stats as stats
 import torch
+
+from utils import visualize_absscale as absscale, visualize_noabsscale as noabsscale, rank_correlation
 
 
 def extract_layers(model):
@@ -29,25 +29,6 @@ def layer_randomization(model, layer_index):
         return model
     else:
         return None
-
-
-def rank_correlation(saliency, target):
-    saliency = saliency.flatten()
-    target = target.flatten()
-    return stats.spearmanr(saliency, target)
-
-
-def noabsscale(x):
-    span = abs(np.percentile(x, 99))
-    vmin = -span
-    vmax = span
-    return np.clip(x / (vmax - vmin), -1, 1)
-
-
-def absscale(x):
-    vmax = abs(np.percentile(x, 99))
-    vmin = np.min(x)
-    return np.clip((x - vmin) / (vmax - vmin), 0, 1)
 
 
 def cascading_randomization(model):

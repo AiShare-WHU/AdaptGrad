@@ -24,7 +24,7 @@ from saliency import (
     BlackBaseline,
 )
 from models import MLP
-from utils import get_salience
+from utils import get_salience, set_seed
 
 from sacred import Experiment
 
@@ -48,15 +48,6 @@ def config():
     samples = 1000  # number of samples for salience map
     device_id = 0
     seed = 0
-
-
-def set_seed(seed: int):
-    np.random.seed(seed)
-    tc.manual_seed(seed)
-    if tc.cuda.is_available():
-        tc.cuda.manual_seed_all(seed)
-    tc.backends.cudnn.deterministic = True
-    tc.backends.cudnn.benchmark = False
 
 
 @ex.automain
