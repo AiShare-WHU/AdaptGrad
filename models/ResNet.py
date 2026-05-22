@@ -17,13 +17,10 @@ class ResNet(nn.Module):
             self.weights = models.ResNet152_Weights.DEFAULT
         else:
             raise ValueError("Model not supported")
-        self.softmax = nn.Softmax(dim=1)
         self.categories = self.weights.meta["categories"]
 
     def forward(self, x):
-        x = self.model(x)
-        # x = self.softmax(x)
-        return x
+        return self.model(x)
 
     def transform(self, x):
         return self.weights.transforms(antialias=True)(x)
